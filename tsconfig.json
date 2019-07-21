@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "*": [
+        "types/*"
+      ]
+    },
+    "outDir": "dist/",
+    "module": "commonjs",
+    "target": "es2017",
+    "lib": [
+      "es2017"
+    ],
+    "sourceMap": false,
+    "typeRoots": [
+      "node_modules/@types"
+    ],
+    "types": [
+      "axios",
+      "express",
+      "node"
+    ]
+  },
+  "include": [
+    "src/index.ts"
+  ]
+}

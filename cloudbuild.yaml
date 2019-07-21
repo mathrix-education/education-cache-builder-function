@@ -1,0 +1,22 @@
+steps:
+  - id: 'compile'
+    name: 'node:10-alpine'
+    entrypoint: 'ash'
+    args:
+      - '-c'
+      - |
+        yarn install
+        yarn run build
+  - id: 'deploy'
+    waitFor: ['compile']
+    name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud functions deploy education-cache-builder \
+          --region=europe-west1 \
+          --runtime=nodejs10 \
+          --trigger-http \
+          --source=dist/ \
+          --timeout=540
