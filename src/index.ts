@@ -21,7 +21,7 @@ if (process.env.SENTRY_DSN) {
 
 const config = {
   sitemap: 'https://mathrix.fr/sitemap.xml',
-  concurrency: 30,
+  concurrency: 50,
   request: {
     headers: {
       'cache-control': 'no-cache', // override cache
