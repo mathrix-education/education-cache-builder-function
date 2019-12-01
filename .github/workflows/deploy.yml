@@ -1,0 +1,125 @@
+name: Deploy
+on:
+  push:
+    branches: ['*'] # Do not run on tags
+jobs:
+  lint:
+    name: List with eslint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Setup Node 10
+        uses: actions/setup-node@v1
+        with:
+          node-version: '10.x'
+      - name: Setup cache
+        uses: actions/cache@v1
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - name: Install dependencies
+        run: npm install
+      - name: Lint with eslint
+        run: npm run lint
+  #  test:
+  #    name: Test with jest
+  #    runs-on: ubuntu-latest
+  #    steps:
+  #      - name: Checkout
+  #        uses: actions/checkout@v1
+  #      - name: Setup Node 10
+  #        uses: actions/setup-node@v1
+  #        with:
+  #          node-version: '10.x'
+  #      - name: Setup cache
+  #        uses: actions/cache@v1
+  #        with:
+  #          path: ~/.npm
+  #          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+  #          restore-keys: |
+  #            ${{ runner.os }}-node-
+  #      - name: Install dependencies
+  #        run: npm install
+  #      - name: Run jest
+  #        run: npm run test:ci
+  #      - name: Upload coverage reports
+  #        uses: actions/upload-artifact@v1.0.0
+  #        with:
+  #          name: coverage
+  #          path: coverage
+  analyse:
+    name: Analyse with SonarQube
+    # needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      #      - name: Download coverage reports
+      #        uses: actions/download-artifact@v1.0.0
+      #        with:
+      #          name: coverage
+      #          path: coverage
+      - name: Setup sonar.properties
+        run: |
+          # Setup version
+          VERSION=$(jq -r .version package.json)
+          echo "sonar.projectVersion=${VERSION}" >> sonar-project.properties
+      - name: Analyse with Sonar Scanner
+        uses: mathrix-education/sonar-scanner@master
+        with:
+          version: 4.2.0.1873
+          scan: true
+          typescript: true
+          args: -Dsonar.host.url=${{ secrets.SONAR_HOST }} -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+  build:
+    name: Build with Typescript
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Setup Node 10
+        uses: actions/setup-node@v1
+        with:
+          node-version: '10.x'
+      - name: Setup cache
+        uses: actions/cache@v1
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - name: Install dependencies
+        run: npm install
+      - name: Compile with TypeScript compiler
+        run: npm run build && cp package.json dist/package.json
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v1.0.0
+        with:
+          name: build
+          path: dist
+  deploy:
+    name: Deploy on Google Cloud Functions
+    # needs: [test, analyse, build]
+    needs: [analyse, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v1.0.0
+        with:
+          name: build
+          path: .
+      - name: Setup Google Cloud SDK
+        uses: mathrix-education/setup-gcloud@0.1.2
+        with:
+          project: ${{ secrets.GCLOUD_PROJECT }}
+          service-account-key: ${{ secrets.GCLOUD_AUTH }}
+      - name: Deploy the Cloud Function
+        run: |
+          gcloud functions deploy education-cache-builder-function \
+            --region=europe-west1 \
+            --runtime=nodejs10 \
+            --trigger-topic=education-cache-build \
+            --set-env-vars=SENTRY_DSN=${{ secrets.SENTRY_DSN }},RELEASE=${GITHUB_SHA:0:7}
