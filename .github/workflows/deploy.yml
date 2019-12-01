@@ -121,5 +121,7 @@ jobs:
           gcloud functions deploy education-cache-builder-function \
             --region=europe-west1 \
             --runtime=nodejs10 \
+            --memory=2048MB \
+            --timeout=540s \
             --trigger-topic=education-cache-build \
             --set-env-vars=SENTRY_DSN=${{ secrets.SENTRY_DSN }},RELEASE=${GITHUB_SHA:0:7}
